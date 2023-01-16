@@ -3,6 +3,8 @@ using System.Windows.Forms;
 
 namespace Giraffics
 {
+    public delegate void PaintDelegate(PaintEventArgs e);
+
     /// <summary>
     /// The usual windows form, but with double buffering.
     /// </summary>

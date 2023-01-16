@@ -18,14 +18,9 @@ namespace Giraffics
     }
 
 
-    /// <summary>
-    /// An interface between a windows form instance and its input related events.
-    /// Some events include more info in their arguments than the windows form class.
-    /// </summary>
-    public class FormEventsWrapper
+    // A digestible wrapper for the BufferedWindow's input-related events.
+    public partial class Giraffic
     {
-        private Form form;
-
         // Window Events
         public event FormClosingEventHandler WindowClosing;
         public event FormClosedEventHandler WindowClosed;
@@ -47,41 +42,37 @@ namespace Giraffics
         public event MouseEventHandler MouseMove;
         public event MouseEventHandler MouseWheel;
 
-        // Tracking form properties for extra event info
-        private Point formPosition;
-        private Size formSize;
+        // Tracking window properties for extra event info
+        private Point windowPosition;
+        private Size windowSize;
 
-        /// <summary>Create InputEvents instance with events subscribed to form.</summary>
-        public FormEventsWrapper(Form form)
+        private void ListenToWindowEvents()
         {
-            this.form = form;
-
-            // Initially track some of the form's properties
-            formPosition = form.Location;
-            formSize = form.Size;
+            // Initially track some of the window's properties
+            windowPosition = window.Location;
+            windowSize = window.Size;
 
             // Window Events
-            form.FormClosing += Form_FormClosing; // WindowClosing
-            form.FormClosed += Form_FormClosed; // WindowClosed
-            form.GotFocus += Form_GotFocus; // WindowFocused
-            form.LostFocus += Form_LostFocus; // WindowUnfocused
-            form.Move += Form_Move; // WindowMoved
-            form.Resize += Form_Resize; // WindowResized
+            window.FormClosing += Form_FormClosing; // WindowClosing
+            window.FormClosed += Form_FormClosed; // WindowClosed
+            window.GotFocus += Form_GotFocus; // WindowFocused
+            window.LostFocus += Form_LostFocus; // WindowUnfocused
+            window.Move += Form_Move; // WindowMoved
+            window.Resize += Form_Resize; // WindowResized
 
             // Keyboard Events
-            form.KeyDown += Form_KeyDown; // KeyDown
-            form.KeyUp += Form_KeyUp; // KeyUp
+            window.KeyDown += Form_KeyDown; // KeyDown
+            window.KeyUp += Form_KeyUp; // KeyUp
 
             // Mouse Events
-            form.MouseDoubleClick += Form_MouseDoubleClick; // MouseDoubleClick
-            form.MouseDown += Form_MouseDown; // MouseDown
-            form.MouseUp += Form_MouseUp; // MouseUp
-            form.MouseEnter += Form_MouseEnter; // MouseEnter
-            form.MouseLeave += Form_MouseLeave; // MouseLeave
-            form.MouseMove += Form_MouseMove; // MouseMove
-            form.MouseWheel += Form_MouseWheel; // MouseWheel
+            window.MouseDoubleClick += Form_MouseDoubleClick; // MouseDoubleClick
+            window.MouseDown += Form_MouseDown; // MouseDown
+            window.MouseUp += Form_MouseUp; // MouseUp
+            window.MouseEnter += Form_MouseEnter; // MouseEnter
+            window.MouseLeave += Form_MouseLeave; // MouseLeave
+            window.MouseMove += Form_MouseMove; // MouseMove
+            window.MouseWheel += Form_MouseWheel; // MouseWheel
         }
-
         
         #region Window Events
 
@@ -107,19 +98,19 @@ namespace Giraffics
 
         private void Form_Move(object sender, EventArgs e)
         {
-            Point oldPos = new Point(formPosition.X, formPosition.Y);
-            formPosition = form.Location;
+            Point oldPos = new Point(windowPosition.X, windowPosition.Y);
+            windowPosition = window.Location;
 
-            MoveArgs args = new MoveArgs() { oldPosition = oldPos, newPosition = formPosition };
+            MoveArgs args = new MoveArgs() { oldPosition = oldPos, newPosition = windowPosition };
             WindowMoved?.Invoke(sender, args);
         }
 
         private void Form_Resize(object sender, EventArgs e)
         {
-            Size oldSize = new Size(formSize.Width, formSize.Height);
-            formSize = form.Size;
+            Size oldSize = new Size(windowSize.Width, windowSize.Height);
+            windowSize = window.Size;
 
-            ResizeArgs args = new ResizeArgs() { oldSize = oldSize, newSize = formSize };
+            ResizeArgs args = new ResizeArgs() { oldSize = oldSize, newSize = windowSize };
             WindowResized?.Invoke(sender, args);
         }
         #endregion
@@ -148,7 +139,7 @@ namespace Giraffics
 
         private void Form_MouseDown(object sender, MouseEventArgs e)
         {
-            MouseDoubleClick?.Invoke(sender, e);
+            MouseDown?.Invoke(sender, e);
         }
 
         private void Form_MouseUp(object sender, MouseEventArgs e)

@@ -6,60 +6,189 @@ using System.Threading.Tasks;
 using System.Drawing;
 using System.Threading;
 using System.ComponentModel;
+using System.Windows.Forms;
+using System.Numerics;
 
 namespace Giraffics
 {
+    class Planet
+    {
+        public Vector2 pos;
+        public Vector2 vel = Vector2.Zero;
+        public Vector2 accel = Vector2.Zero;
+        public double r;
+        public Color color = Color.Yellow;
+        public double mass;
+
+        private Vector2 forces = Vector2.Zero;
+
+        private static List<Planet> planets = new List<Planet>();
+        private static object lockObj = new object();
+
+        public static double G = 100;
+
+        public Planet(Vector2 pos, double r)
+        {
+            this.pos = pos;
+            this.r = r;
+            mass = r * r;
+
+            planets.Add(this);
+        }
+
+        public static void UpdateAll(double dT)
+        {
+            foreach (Planet planet in planets)
+            {
+                planet.Update(dT);
+            }
+        }
+
+        public static void RenderAll(Giraffic giraffic)
+        {
+            foreach (Planet planet in planets)
+            {
+                planet.Render(giraffic);
+            }
+        }
+
+        public void Update(double dT)
+        {
+            foreach (Planet planet in planets)
+            {
+                if (this == planet)
+                    continue;
+
+                double d_squared = Vector2.DistanceSquared(pos, planet.pos);
+                double F = G * mass * planet.mass / d_squared;
+                
+                ApplyForce((float)F * Vector2.Normalize(planet.pos - pos));
+            }
+
+            accel = forces / (float)mass;
+            vel += accel * (float)dT;
+            pos += vel * (float)dT;
+
+            forces *= 0;
+        }
+
+        public void Render(Giraffic giraffic)
+        {
+            giraffic.FillCircle(Color.FromArgb(100, 255, 0, 200), (int)pos.X - giraffic.X, (int)pos.Y - giraffic.Y, (int)r);
+        }
+
+        public void ApplyForce(Vector2 force)
+        {
+            forces += force;
+        }
+    }
+
     class Program
     {
         static Giraffic giraffic;
+
+        static Point[] starPositions;
+        static int[] starRadii;
+        static double[] starBrightnesses;
+
+        static DateTime startTime;
+        static Random random;
+
+        static bool mouseUp = false;
+        static Point mousePos;
+
         static void Main(string[] args)
         {
-            giraffic = new Giraffic("Threaded Giraffic", new Size(800, 600));
+            giraffic = new Giraffic("Spacey Wacey", new Size(800, 600));
+            random = new Random();
 
-            giraffic.winEvents.WindowMoved += WinEvents_WindowMoved;
+            // Immediate-mode GUI
+            giraffic.Icon = new Icon("F:\\Icons\\giraffeIcon.ico");
+            giraffic.BackColor = Color.FromArgb(5, 5, 5);
 
-            int r = (int)(255 * (double)Clamp(giraffic.winProperties.DesktopBounds.X, 0, 2800) / 2800);
-            int g = (int)(255 * (double)Clamp(giraffic.winProperties.DesktopBounds.Y, 0, 1000) / 1500);
-            int b = (int)(255 * (0.5 + Math.Sin((double)giraffic.winProperties.DesktopBounds.X / 200) / 2));
+            giraffic.WindowState = FormWindowState.Maximized;
+            GenStarSeed(0);
+            giraffic.WindowState = FormWindowState.Normal;
 
-            giraffic.winProperties.BackColor = Color.FromArgb(r, g, b);
-
-            giraffic.winProperties.Icon = SystemIcons.Information;
-
-
+            giraffic.MouseUp += Giraffic_MouseUp;
 
 
-            /*double dT = 0;
-            double t = 0;
-            double amp = 255;
-            double freq = 1;
-            while (giraffic.isRunning)
+            new Thread((ThreadStart)delegate
             {
-                DateTime startTime = DateTime.Now;
-                double val = amp * (Math.Sin(freq * 2 * Math.PI * t) + 1) / 2;
+                DateTime loopTime = DateTime.Now;
+                Font myFont = new Font(FontFamily.GenericSansSerif, 20);
+                double dT = 0;
+                double fps = 1;
+                while (giraffic.IsRunning)
+                {
+                    DateTime startTime = DateTime.Now;
 
-                giraffic.winProps.BackColor = Color.FromArgb((int)val, (int)val, (int)val);
-                
-                t += dT;
-                dT = (double)(DateTime.Now - startTime).Milliseconds / 1000;
-            }*/
+                    if (mouseUp)
+                    {
+                        MakeRandomPlanet(mousePos);
+                        mouseUp = false;
+                    }
 
-            //Console.ReadKey();
+                    giraffic.Clear();
+                    DrawStars();
+                    Planet.UpdateAll(dT);
+                    Planet.RenderAll(giraffic);
+
+                    if ((DateTime.Now - loopTime).TotalMilliseconds >= 500)
+                    {
+                        fps = (int)(1 / dT);
+                        loopTime = DateTime.Now;
+                    }
+                    giraffic.DrawText(Color.Red, fps + "FPS", 10, 10, myFont);
+
+                    giraffic.Refresh();
+
+                    dT = (DateTime.Now - startTime).TotalSeconds;
+                }
+            }).Start();
+
+            startTime = DateTime.Now;
         }
 
-        private static int Clamp(int val, int min, int max)
+        private static void Giraffic_MouseUp(object sender, MouseEventArgs e)
         {
-            return Math.Min(max, Math.Max(min, val));
+            mouseUp = true;
+            mousePos = e.Location;
         }
 
-        private static void WinEvents_WindowMoved(object sender, MoveArgs e)
+        static void MakeRandomPlanet(Point location)
         {
-            
-            int r = (int)(255 * (double)Clamp(e.newPosition.X, 0, 2800) / 2800);
-            int g = (int)(255 * (double)Clamp(e.newPosition.Y, 0, 1000) / 1500);
-            int b = (int)(255 * (0.5 + Math.Sin((double)e.newPosition.X / 200)/2));
+            float mag = 10 + 90 * (float)random.NextDouble();
+            double r = 10 + 80 * random.NextDouble();
+            Vector2 vel = mag * Vector2.Normalize(new Vector2((float)(2 * random.NextDouble() - 1), (float)(2 * random.NextDouble() - 1)));
+            Planet planet = new Planet(new Vector2(location.X + giraffic.X, location.Y + giraffic.Y), r);
+            planet.vel = vel;
+        }
 
-            giraffic.winProperties.BackColor = Color.FromArgb(r, g, b);
+        static void GenStarSeed(int numStars)
+        {
+            starPositions = new Point[numStars];
+            starRadii = new int[numStars];
+            starBrightnesses = new double[numStars];
+            for (int i = 0; i < numStars; i++)
+            {
+                starPositions[i] = new Point(random.Next(-2000, giraffic.Size.Width), random.Next(giraffic.Size.Height));
+                starRadii[i] = random.Next(1, 3);
+                starBrightnesses[i] = random.NextDouble();
+            }
+        }
+
+        static void DrawStars()
+        {
+            double t = (double)(DateTime.Now - startTime).TotalMilliseconds / 1000;
+            double b = (2 + Math.Sin(t)) / 3;
+            for (int i = 0; i < starPositions.Length; i++)
+            {
+                Point pos = starPositions[i];
+                int r = starRadii[i];
+                int brightness = (int)(b * starBrightnesses[i] * 255);
+                giraffic.FillCircle(Color.FromArgb(brightness, brightness, brightness), pos.X - giraffic.X, pos.Y - giraffic.Y, r);
+            }
         }
     }
 }

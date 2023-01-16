@@ -2,41 +2,61 @@
 using System.Drawing;
 using System.Threading;
 using System;
+using System.ComponentModel;
+using System.Drawing.Drawing2D;
 
 namespace Giraffics
 {
     /// <summary>
     /// A fancy modular window that runs in another thread. A Giraffic is 
-    /// functionally a dynamically paintable canvas derived from Windows Forms.
+    /// functionally a dynamically paintable canvas which acts as a wrapper for
+    /// the Windows Forms class and Graphics class for simplicity of drawing.
     /// </summary>
-    class Giraffic
+    public partial class Giraffic
     {
         // Private Giraffic instance variables
         private Thread windowThread;
         private BufferedWindow window;
+        private Bitmap bitmap;
+        private Graphics graphics; // This is set to a new instance after every paint.
+        private SizeF oldGraphicsSize; // Keep track of 
 
         // Public instance variables
-        public FormEventsWrapper winEvents;
-        public FormPropertiesWrapper winProperties;
-        public bool isRunning = false;
+        public bool IsRunning { get; protected set; }
+        public bool isAntiAlias;
 
-
+        /// <summary>
+        /// A fancy modular window that runs in another thread. A Giraffic is 
+        /// functionally a dynamically paintable canvas which acts as a wrapper for
+        /// the Windows Forms class and Graphics class for simplicity of drawing.
+        /// </summary>
         public Giraffic(string name, Size size, FormStartPosition startPos = FormStartPosition.WindowsDefaultLocation)
         {
             // Setup window in another thread
             windowThread = new Thread(() => InitializeWindow(name, size, startPos));
             windowThread.Start();
-            
+
+            // Enable anti-aliasing by default.
+            isAntiAlias = true; 
+
+            // Create a bitmap and a graphics object to help draw on it.
+            bitmap = new Bitmap(size.Width, size.Height);
+            graphics = Graphics.FromImage(bitmap);
+            graphics.SmoothingMode = SmoothingMode.AntiAlias;
+
+            oldGraphicsSize = graphics.VisibleClipBounds.Size;
+
+            IsRunning = true;
+
             // Wait until the window is completely constructed before return.
             while (window == null || !window.IsHandleCreated)
                 Thread.Sleep(10);
-            
         }
 
         /// <summary>Stop the Giraffic and destroy its window. Cannot be started again.</summary>
         public void Close()
         {
-            isRunning = false;
+            IsRunning = false;
             CrossThreadWindowOp(delegate
             {
                 window.Close();
@@ -61,6 +81,15 @@ namespace Giraffics
             });
         }
 
+        /// <summary>Force the Giraffic window to display what's on the canvas.</summary>
+        public void Refresh()
+        {
+            CrossThreadWindowOp(delegate
+            {
+                window.Refresh();
+            });
+        }
+
         /// <summary>Create the Giraffic window and all of its necessary cross-thread
         /// interfaces, then run the application.</summary>
         private void InitializeWindow(string name, Size size, FormStartPosition startPos)
@@ -69,40 +98,50 @@ namespace Giraffics
             window.StartPosition = startPos;
 
             // Establish all window-related and user input events
-            winEvents = new FormEventsWrapper(window);
+            ListenToWindowEvents();
             window.Paint += WindowPainter;
 
-            // Create a cross-thread accessible wrapper of the window properties
-            winProperties = new FormPropertiesWrapper(window);
-
             // Make sure the window closes properly
-            winEvents.WindowClosing += delegate { if (isRunning) Close(); }; // Properly dispose window and end thread.
-
-            isRunning = true;
+            WindowClosing += delegate { if (IsRunning) Close(); }; // Properly dispose window and end thread.
+            
+            IsRunning = true;
             Application.Run(window);
         }
 
-        /// <summary>Draws the actual pixels onto the window.</summary>
+        /// <summary>Draws the bitmap onto the window.</summary>
         private void WindowPainter(object sender, PaintEventArgs e)
         {
-            /*Canvas canvas = new Canvas(e.Graphics);
-            canvas.DrawRect(Color.Black, 50, 50, 400, 150, 3);*/
+            // Reset the bitmap's size to fit the screen if the screen's size has changed.
+            if (oldGraphicsSize != e.Graphics.VisibleClipBounds.Size)
+                ResetBitmapSize();
+            oldGraphicsSize = e.Graphics.VisibleClipBounds.Size;
+
+            e.Graphics.CompositingMode = CompositingMode.SourceCopy; // Slight performance boost.
+            e.Graphics.DrawImageUnscaled(bitmap, 0, 0);
+        }
+
+        /// <summary>Resizes the bitmap to the window.</summary>
+        private void ResetBitmapSize()
+        {
+            Bitmap resized_bitmap = new Bitmap(window.Size.Width, window.Size.Height);
+            using (Graphics g = Graphics.FromImage(resized_bitmap))
+            {
+                g.DrawImage(bitmap, 0, 0, bitmap.Width, bitmap.Height);
+            }
+            bitmap = resized_bitmap;
+            graphics = Graphics.FromImage(bitmap);
+            if (isAntiAlias)
+                graphics.SmoothingMode = SmoothingMode.AntiAlias;
         }
 
         /// <summary>Execute some delegate on the same thread as the window.
         /// Meant for set operations on window properties. Returns true if success.</summary>
         private bool CrossThreadWindowOp(MethodInvoker operation)
         {
-            try
-            {
-                window.Invoke(operation);
-                return true;
-            }
-            catch (ObjectDisposedException) // Abort if window is disposed (closed).
-            {
+            if (!window.IsHandleCreated || window.IsDisposed)
                 return false;
-            }
-
+            window.Invoke(operation);
+            return true;
         }
     }
 }

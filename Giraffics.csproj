@@ -49,10 +49,10 @@
     <Compile Include="BufferedWindow.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Canvas.cs" />
-    <Compile Include="FormPropertiesWrapper.cs" />
+    <Compile Include="GirafficFormPropertiesWrapper.cs" />
     <Compile Include="Giraffic.cs" />
-    <Compile Include="FormEventsWrapper.cs" />
+    <Compile Include="GirafficFormEventsWrapper.cs" />
+    <Compile Include="GirafficGraphicsWrapper.cs" />
     <Compile Include="Old\BufferedForm.cs">
       <SubType>Form</SubType>
     </Compile>
