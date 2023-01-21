@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
 
@@ -45,6 +46,7 @@ namespace Giraffics
         // Tracking window properties for extra event info
         private Point windowPosition;
         private Size windowSize;
+        private List<Keys> keysDown = new List<Keys>();
 
         private void ListenToWindowEvents()
         {
@@ -120,11 +122,17 @@ namespace Giraffics
 
         private void Form_KeyDown(object sender, KeyEventArgs e)
         {
-            KeyDown?.Invoke(sender, e);
+            if (!keysDown.Contains(e.KeyCode))
+            {
+                keysDown.Add(e.KeyCode);
+                KeyDown?.Invoke(sender, e);
+            }
         }
 
         private void Form_KeyUp(object sender, KeyEventArgs e)
         {
+            if (keysDown.Contains(e.KeyCode))
+                keysDown.Remove(e.KeyCode);
             KeyUp?.Invoke(sender, e);
         }
         #endregion

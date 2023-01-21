@@ -1,15 +1,52 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Drawing;
+
 
 namespace Giraffics
 {
-    // A wrapper for the Giraffic's graphics instance. Exposes drawing-related methods.
-    public partial class Giraffic
+    /// <summary>
+    /// A wrapper for the Graphics class. Exposes useful drawing methods.
+    /// </summary>
+    public class Canvas
     {
+        protected Graphics graphics;
+        protected Bitmap bitmap;
+
+        public Canvas(Bitmap bitmap)
+        {
+            this.bitmap = bitmap;
+            graphics = Graphics.FromImage(bitmap);
+        }
+
+        public Canvas(Image image)
+        {
+            bitmap = (Bitmap)image;
+            graphics = Graphics.FromImage(image);
+        }
+
+        public Canvas(Size size)
+        {
+            bitmap = new Bitmap(size.Width, size.Height);
+            graphics = Graphics.FromImage(bitmap);
+        }
+
+        /// <summary>Resizes the canvas to a new size while keeping the old contents.
+        /// Maintains the SmoothingMode of the previous canvas.</summary>
+        public void ChangeSize(Size newSize)
+        {
+            Bitmap newBitmap = new Bitmap(newSize.Width, newSize.Height);
+            using (Graphics g = Graphics.FromImage(newBitmap))
+            {
+                g.DrawImage(bitmap, 0, 0, bitmap.Width, bitmap.Height);
+            }
+            
+            Graphics newGraphics = Graphics.FromImage(newBitmap);
+            newGraphics.SmoothingMode = graphics.SmoothingMode;
+
+            graphics = newGraphics;
+            bitmap = newBitmap;
+        }
+        
+
         /// <summary>Clears the screen and fills it with the given color.</summary>
         public void Clear(Color color)
         {

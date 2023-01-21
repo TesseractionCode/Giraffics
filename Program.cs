@@ -9,186 +9,44 @@ using System.ComponentModel;
 using System.Windows.Forms;
 using System.Numerics;
 
-namespace Giraffics
+using Giraffics;
+using Giraffics.Utilities.Game;
+
+namespace TestSpace
 {
-    class Planet
-    {
-        public Vector2 pos;
-        public Vector2 vel = Vector2.Zero;
-        public Vector2 accel = Vector2.Zero;
-        public double r;
-        public Color color = Color.Yellow;
-        public double mass;
-
-        private Vector2 forces = Vector2.Zero;
-
-        private static List<Planet> planets = new List<Planet>();
-        private static object lockObj = new object();
-
-        public static double G = 100;
-
-        public Planet(Vector2 pos, double r)
-        {
-            this.pos = pos;
-            this.r = r;
-            mass = r * r;
-
-            planets.Add(this);
-        }
-
-        public static void UpdateAll(double dT)
-        {
-            foreach (Planet planet in planets)
-            {
-                planet.Update(dT);
-            }
-        }
-
-        public static void RenderAll(Giraffic giraffic)
-        {
-            foreach (Planet planet in planets)
-            {
-                planet.Render(giraffic);
-            }
-        }
-
-        public void Update(double dT)
-        {
-            foreach (Planet planet in planets)
-            {
-                if (this == planet)
-                    continue;
-
-                double d_squared = Vector2.DistanceSquared(pos, planet.pos);
-                double F = G * mass * planet.mass / d_squared;
-                
-                ApplyForce((float)F * Vector2.Normalize(planet.pos - pos));
-            }
-
-            accel = forces / (float)mass;
-            vel += accel * (float)dT;
-            pos += vel * (float)dT;
-
-            forces *= 0;
-        }
-
-        public void Render(Giraffic giraffic)
-        {
-            giraffic.FillCircle(Color.FromArgb(100, 255, 0, 200), (int)pos.X - giraffic.X, (int)pos.Y - giraffic.Y, (int)r);
-        }
-
-        public void ApplyForce(Vector2 force)
-        {
-            forces += force;
-        }
-    }
-
     class Program
     {
-        static Giraffic giraffic;
-
-        static Point[] starPositions;
-        static int[] starRadii;
-        static double[] starBrightnesses;
-
-        static DateTime startTime;
-        static Random random;
-
-        static bool mouseUp = false;
-        static Point mousePos;
+        static float x = 0;
+        static float y = 0;
+        static float speedX = 100;
+        static float speedY = 100;
 
         static void Main(string[] args)
         {
-            giraffic = new Giraffic("Spacey Wacey", new Size(800, 600));
-            random = new Random();
+            Giraffic giraffic = new Giraffic("My Giraffic", new Size(800, 600), FormStartPosition.CenterScreen);
 
-            // Immediate-mode GUI
-            giraffic.Icon = new Icon("F:\\Icons\\giraffeIcon.ico");
-            giraffic.BackColor = Color.FromArgb(5, 5, 5);
+            // Configure the Giraffic
+            giraffic.MinSize = new Size(250, 100);
+            giraffic.BackColor = Color.FromArgb(240, 240, 240);
+            giraffic.BackColor = Color.Black;
 
-            giraffic.WindowState = FormWindowState.Maximized;
-            GenStarSeed(0);
-            giraffic.WindowState = FormWindowState.Normal;
-
-            giraffic.MouseUp += Giraffic_MouseUp;
-
-
-            new Thread((ThreadStart)delegate
-            {
-                DateTime loopTime = DateTime.Now;
-                Font myFont = new Font(FontFamily.GenericSansSerif, 20);
-                double dT = 0;
-                double fps = 1;
-                while (giraffic.IsRunning)
-                {
-                    DateTime startTime = DateTime.Now;
-
-                    if (mouseUp)
-                    {
-                        MakeRandomPlanet(mousePos);
-                        mouseUp = false;
-                    }
-
-                    giraffic.Clear();
-                    DrawStars();
-                    Planet.UpdateAll(dT);
-                    Planet.RenderAll(giraffic);
-
-                    if ((DateTime.Now - loopTime).TotalMilliseconds >= 500)
-                    {
-                        fps = (int)(1 / dT);
-                        loopTime = DateTime.Now;
-                    }
-                    giraffic.DrawText(Color.Red, fps + "FPS", 10, 10, myFont);
-
-                    giraffic.Refresh();
-
-                    dT = (DateTime.Now - startTime).TotalSeconds;
-                }
-            }).Start();
-
-            startTime = DateTime.Now;
+            EventListener events = new EventListener(giraffic);
+            GameLoop gameLoop = new GameLoop(giraffic, events, Update, Render);
+            gameLoop.Start();
         }
 
-        private static void Giraffic_MouseUp(object sender, MouseEventArgs e)
+        private static void Update(EventListener events, float dT, float elapsedTime)
         {
-            mouseUp = true;
-            mousePos = e.Location;
+            x = elapsedTime * 5 * (float)Math.Cos(100 * elapsedTime) + 400;
+            y = elapsedTime * 5 * (float)Math.Sin(100 * elapsedTime) + 300;
         }
 
-        static void MakeRandomPlanet(Point location)
+        private static void Render(Giraffic giraffic)
         {
-            float mag = 10 + 90 * (float)random.NextDouble();
-            double r = 10 + 80 * random.NextDouble();
-            Vector2 vel = mag * Vector2.Normalize(new Vector2((float)(2 * random.NextDouble() - 1), (float)(2 * random.NextDouble() - 1)));
-            Planet planet = new Planet(new Vector2(location.X + giraffic.X, location.Y + giraffic.Y), r);
-            planet.vel = vel;
-        }
-
-        static void GenStarSeed(int numStars)
-        {
-            starPositions = new Point[numStars];
-            starRadii = new int[numStars];
-            starBrightnesses = new double[numStars];
-            for (int i = 0; i < numStars; i++)
-            {
-                starPositions[i] = new Point(random.Next(-2000, giraffic.Size.Width), random.Next(giraffic.Size.Height));
-                starRadii[i] = random.Next(1, 3);
-                starBrightnesses[i] = random.NextDouble();
-            }
-        }
-
-        static void DrawStars()
-        {
-            double t = (double)(DateTime.Now - startTime).TotalMilliseconds / 1000;
-            double b = (2 + Math.Sin(t)) / 3;
-            for (int i = 0; i < starPositions.Length; i++)
-            {
-                Point pos = starPositions[i];
-                int r = starRadii[i];
-                int brightness = (int)(b * starBrightnesses[i] * 255);
-                giraffic.FillCircle(Color.FromArgb(brightness, brightness, brightness), pos.X - giraffic.X, pos.Y - giraffic.Y, r);
-            }
+            //giraffic.Clear();
+            giraffic.FillCircle(Color.Teal, (int)x + 100, (int)y, 2);
+            giraffic.FillCircle(Color.IndianRed, (int)x + 200, (int)y + 100, 2);
+            giraffic.FillCircle(Color.AliceBlue, (int)x, (int)y + 100, 2);
         }
     }
 }

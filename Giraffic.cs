@@ -4,6 +4,7 @@ using System.Threading;
 using System;
 using System.ComponentModel;
 using System.Drawing.Drawing2D;
+using System.Reflection;
 
 namespace Giraffics
 {
@@ -12,13 +13,13 @@ namespace Giraffics
     /// functionally a dynamically paintable canvas which acts as a wrapper for
     /// the Windows Forms class and Graphics class for simplicity of drawing.
     /// </summary>
-    public partial class Giraffic
+    public partial class Giraffic : Canvas
     {
         // Private Giraffic instance variables
         private Thread windowThread;
         private BufferedWindow window;
-        private Bitmap bitmap;
-        private Graphics graphics; // This is set to a new instance after every paint.
+        //private Bitmap bitmap;
+        //private Graphics graphics; // This is set to a new instance after every paint.
         private SizeF oldGraphicsSize; // Keep track of 
 
         // Public instance variables
@@ -30,18 +31,19 @@ namespace Giraffics
         /// functionally a dynamically paintable canvas which acts as a wrapper for
         /// the Windows Forms class and Graphics class for simplicity of drawing.
         /// </summary>
-        public Giraffic(string name, Size size, FormStartPosition startPos = FormStartPosition.WindowsDefaultLocation)
+        public Giraffic(string name, Size size, FormStartPosition startPos = FormStartPosition.WindowsDefaultLocation): base(size)
         {
             // Setup window in another thread
             windowThread = new Thread(() => InitializeWindow(name, size, startPos));
             windowThread.Start();
-
+            
             // Enable anti-aliasing by default.
-            isAntiAlias = true; 
+            isAntiAlias = true;
 
             // Create a bitmap and a graphics object to help draw on it.
-            bitmap = new Bitmap(size.Width, size.Height);
+            /*bitmap = new Bitmap(size.Width, size.Height);
             graphics = Graphics.FromImage(bitmap);
+            graphics.SmoothingMode = SmoothingMode.AntiAlias;*/
             graphics.SmoothingMode = SmoothingMode.AntiAlias;
 
             oldGraphicsSize = graphics.VisibleClipBounds.Size;
@@ -96,7 +98,11 @@ namespace Giraffics
         {
             window = new BufferedWindow(name, size);
             window.StartPosition = startPos;
-
+            
+            // Add some pazzaz
+            window.BackColor = Color.FromArgb(240, 240, 240);
+            window.Icon = new Icon(typeof(Giraffic), "giraffe.ico"); // Made by Rfourtytwo MUST CREDIT
+            
             // Establish all window-related and user input events
             ListenToWindowEvents();
             window.Paint += WindowPainter;
@@ -113,25 +119,10 @@ namespace Giraffics
         {
             // Reset the bitmap's size to fit the screen if the screen's size has changed.
             if (oldGraphicsSize != e.Graphics.VisibleClipBounds.Size)
-                ResetBitmapSize();
+                ChangeSize(window.Size);
             oldGraphicsSize = e.Graphics.VisibleClipBounds.Size;
-
-            e.Graphics.CompositingMode = CompositingMode.SourceCopy; // Slight performance boost.
+            
             e.Graphics.DrawImageUnscaled(bitmap, 0, 0);
-        }
-
-        /// <summary>Resizes the bitmap to the window.</summary>
-        private void ResetBitmapSize()
-        {
-            Bitmap resized_bitmap = new Bitmap(window.Size.Width, window.Size.Height);
-            using (Graphics g = Graphics.FromImage(resized_bitmap))
-            {
-                g.DrawImage(bitmap, 0, 0, bitmap.Width, bitmap.Height);
-            }
-            bitmap = resized_bitmap;
-            graphics = Graphics.FromImage(bitmap);
-            if (isAntiAlias)
-                graphics.SmoothingMode = SmoothingMode.AntiAlias;
         }
 
         /// <summary>Execute some delegate on the same thread as the window.
@@ -140,7 +131,11 @@ namespace Giraffics
         {
             if (!window.IsHandleCreated || window.IsDisposed)
                 return false;
-            window.Invoke(operation);
+            try
+            {
+                window.Invoke(operation);
+            } catch (ObjectDisposedException) { return false; }
+            
             return true;
         }
     }

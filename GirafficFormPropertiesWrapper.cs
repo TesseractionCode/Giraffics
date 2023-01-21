@@ -7,6 +7,18 @@ namespace Giraffics
     // A wrapper for relevant non-windowsforms specific methods in the Giraffic BufferedWindow instance. 
     public partial class Giraffic
     {
+        public string Name
+        {
+            get => window.Text;
+            set
+            {
+                CrossThreadWindowOp(delegate
+                {
+                    window.Text = value;
+                });
+            }
+        }
+
         public Color BackColor
         {
             get => window.BackColor;
@@ -219,6 +231,19 @@ namespace Giraffics
                 {
                     window.ShowInTaskbar = value;
                 });
+            }
+        }
+
+        public Point MousePosition
+        {
+            get
+            {
+                Point mousePos = Point.Empty;
+                CrossThreadWindowOp(delegate
+                {
+                    mousePos = window.PointToClient(Cursor.Position);
+                });
+                return mousePos;
             }
         }
     }
